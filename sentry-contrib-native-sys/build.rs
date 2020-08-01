@@ -14,15 +14,15 @@
 //!   `DEP_SENTRY_NATIVE_CRASHPAD_HANDLER`.
 //! - Links appropriate libraries.
 
-use anyhow::{Context, Result};
-use cmake::Config;
-use std::{
-    env, fs,
-    path::{Path, PathBuf},
-};
+mod cc;
+#[cfg(feature = "use-cmake")]
+mod cmake;
+
+use anyhow::Result;
+use std::{env, fs, path::PathBuf};
 
 #[derive(Copy, Clone)]
-enum Backend {
+pub enum Backend {
     Crashpad,
     Breakpad,
     InProc,
@@ -77,12 +77,26 @@ fn main() -> Result<()> {
             .and_then(|mut dir| dir.next())
             .is_none()
         {
-            build(&source, Some(&install), backend)?
+            #[cfg(feature = "use-cmake")]
+            {
+                cmake::build(&source, Some(&install), backend)?
+            }
+            #[cfg(not(feature = "use-cmake"))]
+            {
+                cc::build(&source, Some(&install), backend)?
+            }
         } else {
             install
         }
     } else {
-        build(&source, None, backend)?
+        #[cfg(feature = "use-cmake")]
+        {
+            cmake::build(&source, None, backend)?
+        }
+        #[cfg(not(feature = "use-cmake"))]
+        {
+            cc::build(&source, None, backend)?
+        }
     };
 
     println!("cargo:rerun-if-env-changed=SENTRY_NATIVE_INSTALL");
@@ -160,68 +174,4 @@ fn main() -> Result<()> {
     }
 
     Ok(())
-}
-
-/// Build `sentry_native` with `CMake`.
-fn build(source: &Path, install: Option<&Path>, backend: Backend) -> Result<PathBuf> {
-    let mut cmake_config = Config::new(source);
-    cmake_config
-        .define("BUILD_SHARED_LIBS", "OFF")
-        .define("SENTRY_BUILD_TESTS", "OFF")
-        .define("SENTRY_BUILD_EXAMPLES", "OFF")
-        .profile("RelWithDebInfo");
-
-    if let Some(install) = install {
-        fs::create_dir_all(install).expect("failed to create install directory");
-        cmake_config.out_dir(install);
-    }
-
-    if cfg!(not(feature = "transport-default")) {
-        cmake_config.define("SENTRY_TRANSPORT", "none");
-    }
-
-    cmake_config.define("SENTRY_BACKEND", backend.as_ref());
-
-    if cfg!(target_feature = "crt-static") {
-        cmake_config.define("SENTRY_BUILD_RUNTIMESTATIC", "ON");
-    }
-
-    // If we're targetting android, we need to set the CMAKE_TOOLCHAIN_FILE
-    // which properly sets up the build environment, and we also need to set
-    // ANDROID_ABI based on our target-triple. It seems there is not really
-    // a good standard for the NDK, so we try several environment variables to
-    // find it
-    // See https://developer.android.com/ndk/guides/cmake for details
-    let target_os = env::var("CARGO_CFG_TARGET_OS").context("TARGET_OS not set")?;
-
-    if target_os == "android" || target_os == "androideabi" {
-        let ndk_root = env::var("ANDROID_NDK_ROOT")
-            .or_else(|_| env::var("ANDROID_NDK_HOME"))
-            .context("unable to find ANDROID_NDK_ROOT nor ANDROID_NDK_HOME")?;
-
-        let mut toolchain = PathBuf::from(ndk_root);
-        toolchain.push("build/cmake/android.toolchain.cmake");
-
-        if !toolchain.exists() {
-            anyhow::bail!(
-                "Unable to find cmake toolchain file {}",
-                toolchain.display()
-            );
-        }
-
-        let target_arch = env::var("CARGO_CFG_TARGET_ARCH").context("TARGET_ARCH not set")?;
-        let abi = match target_arch.as_ref() {
-            "aarch64" => "arm64-v8a",
-            "arm" | "armv7" => "armeabi-v7a",
-            "thumbv7neon" => "armeabi-v7a with NEON",
-            "x86_64" => "x86_64",
-            "i686" => "x86",
-            arch => anyhow::bail!("Unknown Android TARGET_ARCH: {}", arch),
-        };
-
-        cmake_config.define("CMAKE_TOOLCHAIN_FILE", toolchain);
-        cmake_config.define("ANDROID_ABI", abi);
-    }
-
-    Ok(cmake_config.build())
 }

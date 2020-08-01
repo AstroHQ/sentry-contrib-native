@@ -48,7 +48,7 @@ tokio = { version = "0.2", features = ["macros", "process", "rt-threaded"] }
 url = "2"
 
 [features]
-default = ["backend-default", "transport-default"]
+default = ["backend-default", "transport-default", "use-cmake"]
 backend-default = ["sys/backend-default"]
 backend-crashpad = ["sys/backend-crashpad"]
 backend-breakpad = ["sys/backend-breakpad"]
@@ -57,6 +57,7 @@ transport-default = ["sys/transport-default"]
 transport-custom = ["http", "url"]
 nightly = ["sys/nightly"]
 test = []
+use-cmake = ["sys/use-cmake"]
 
 [[example]]
 name = "custom-transport"
