@@ -105,6 +105,15 @@ impl Breadcrumb {
             unsafe { sys::add_breadcrumb(breadcrumb) }
         }
     }
+
+    pub fn add_several(breadcrumbs: impl Iterator<Item = Self>) {
+        {
+            let _lock = global_lock();
+            for bc in breadcrumbs.map(Object::into_raw) {
+                unsafe { sys::add_breadcrumb(bc) }
+            }
+        }
+    }
 }
 
 #[test]
