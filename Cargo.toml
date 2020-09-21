@@ -16,6 +16,7 @@ members = ["sentry-contrib-native-sys", "tests/res/dylib"]
 [dependencies]
 http = { version = "0.2", optional = true }
 once_cell = "1"
+parking_lot = "0.11"
 rmpv = "0.4"
 sys = { package = "sentry-contrib-native-sys", version = "0.1.0", path = "sentry-contrib-native-sys", default-features = false }
 thiserror = "1"
@@ -29,7 +30,6 @@ hex = "0.4"
 futures-executor = "0.3"
 futures-util = "0.3"
 libloading = "0.6"
-parking_lot = "0.11"
 rand = "0.7"
 reqwest = { version = "0.10", default-features = false, features = [
   "blocking",

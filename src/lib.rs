@@ -44,12 +44,12 @@ use once_cell::sync::Lazy;
 use options::Ownership;
 pub use options::{Options, Shutdown};
 pub use panic::set_hook;
+use parking_lot::{Mutex, MutexGuard};
 use std::{
     convert::Infallible,
     fmt::{Display, Formatter, Result as FmtResult},
     os::raw::c_char,
     ptr,
-    sync::{Mutex, MutexGuard},
 };
 use thiserror::Error;
 use transport::State as TransportState;
@@ -177,7 +177,7 @@ static GLOBAL_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
 
 /// Convenience function to get a write lock on `GLOBAL_LOCK`.
 fn global_lock() -> MutexGuard<'static, ()> {
-    GLOBAL_LOCK.lock().expect("global lock poisoned")
+    GLOBAL_LOCK.lock()
 }
 
 /// Shuts down the Sentry client and forces transports to flush out.
