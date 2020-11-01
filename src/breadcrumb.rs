@@ -105,6 +105,32 @@ impl Breadcrumb {
             unsafe { sys::add_breadcrumb(breadcrumb) }
         }
     }
+
+    /// Adds multiple [`Breadcrumb`]s to be sent in case of an [`Event::capture`].
+    ///
+    /// # Examples
+    /// ```
+    /// # use sentry_contrib_native::Breadcrumb;
+    /// let crumbs = vec![
+    ///     Breadcrumb::new(None, Some("test message one".into())),
+    ///     Breadcrumb::new(None, Some("test message two".into())),
+    /// ];
+    ///
+    /// Breadcrumb::add_iter(crumbs);
+    /// ```
+    pub fn add_iter(breadcrumbs: impl IntoIterator<Item = Self>) {
+        let breadcrumbs: smallvec::SmallVec<[sys::Value; 64]> =
+            breadcrumbs.into_iter().map(Object::into_raw).collect();
+
+        {
+            let _lock = global_lock();
+            unsafe {
+                for bc in breadcrumbs {
+                    sys::add_breadcrumb(bc);
+                }
+            }
+        }
+    }
 }
 
 #[test]
